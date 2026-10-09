@@ -1,0 +1,20 @@
+appId: local.jarvis.personal
+productName: JARVIS
+directories:
+  output: release/windows
+files:
+  - desktop/**/*
+  - server/**/*
+  - dist/**/*
+  - docs/NATIVE.md
+  - package.json
+  - '!node_modules/**/*'
+  - '!**/.data/**/*'
+asar: true
+win:
+  target:
+    - target: portable
+      arch: [x64]
+  signAndEditExecutable: false
+portable:
+  artifactName: JARVIS-${version}-Windows-x64.exe
