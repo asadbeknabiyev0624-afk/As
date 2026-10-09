@@ -4,6 +4,9 @@ A personal assistant inspired by Tony Stark's companion: a place to talk things 
 
 ## Use the Windows EXE and Android APK
 
+- [Download Windows EXE](https://github.com/asadbeknabiyev0624-afk/As/raw/refs/heads/jarvis-downloads/JARVIS-Windows.exe) · [Download Android APK](https://github.com/asadbeknabiyev0624-afk/As/raw/refs/heads/jarvis-downloads/JARVIS-Android.apk)
+- [Browse downloads and checksums](https://github.com/asadbeknabiyev0624-afk/As/tree/jarvis-downloads)
+
 - **Windows 10/11, x64:** Open `JARVIS-Windows.exe`. No Node.js or npm installation is needed to run it.
 - **Android 8+:** Install `JARVIS-Android.apk`. The phone connects to the Windows app; it does not contain an AI model.
 
