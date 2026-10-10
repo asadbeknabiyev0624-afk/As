@@ -2,6 +2,8 @@
 
 Windows uchun **JARVIS-Windows.exe** faylini oching. Android uchun **JARVIS-Android.apk** faylini o‘rnating. Telefonda AI ishlashi uchun kompyuteringizda JARVIS ochiq va internetga ulangan bo‘lishi kerak.
 
+Ollama o‘rnatilgan bo‘lsa, JARVIS ichidagi **Download AI** tugmasini bosing va **Connected and ready** chiqishini kuting. Windows versiyasi: **0.1.1**; Android APK o‘zgarmagan.
+
 | Device | Download | Requirement |
 | --- | --- | --- |
 | Computer | `JARVIS-Windows.exe` | Windows 10 or 11, 64-bit x64 |
@@ -10,9 +12,9 @@ Windows uchun **JARVIS-Windows.exe** faylini oching. Android uchun **JARVIS-Andr
 ## Start on Windows
 
 1. Save `JARVIS-Windows.exe` in a folder you control, then double-click it. This portable app includes its server and web interface; you do not need Node.js, npm, or a terminal to launch it. It is an unsigned personal development build, so Windows may show an unknown-publisher notice.
-2. Open **Settings → Desktop & Android → Install Ollama**. Install Ollama from the official Windows download page that opens.
-3. Close and reopen JARVIS. It reuses an existing local Ollama server or starts the installed Ollama command.
-4. Choose **Download free AI**. Keep JARVIS open while the `qwen2.5:1.5b` model downloads, about 1 GB. Refresh the AI connection in Settings when the download finishes.
+2. If Ollama is already installed, go straight to step 3. Otherwise, choose **Install Ollama** in JARVIS's setup card, finish the official Windows installation, then reopen JARVIS.
+3. On **Overview** or **Conversation**, choose **Download AI** in the setup card. The same controls are available under **Settings → Desktop & Android**. JARVIS connects to Ollama and downloads the selected model; the default `qwen2.5:1.5b` download is about 1 GB.
+4. Keep JARVIS open and wait until it says **Connected and ready**. Progress and download errors remain visible in the setup card. JARVIS verifies that Ollama lists the installed model before reporting readiness. If setup fails, read the displayed error, address that issue, and choose **Retry setup**.
 5. Add your name and preferences in Settings, then send a message.
 
 The AI runs on your own computer without a paid AI API or subscription. Initial installation and model downloading need internet access; local AI replies can work afterward without internet. Notes and tasks work even before the model is ready. Larger models are optional and require more computer memory.
@@ -47,7 +49,7 @@ The companion server listens at `127.0.0.1:3001` and requires its key for API ac
 
 ## If setup stalls
 
-- **Model needs setup:** Finish installing Ollama, reopen JARVIS, choose **Download free AI**, then refresh the model connection. Try the download again if it reports failure.
+- **Model needs setup:** With Ollama installed, choose **Download AI** on Overview or Conversation and wait for **Connected and ready**. If an error appears, it remains in the setup card; follow that message and choose **Retry setup**.
 - **Port 3001 is already in use:** Close the other JARVIS server or application using that port, then reopen the EXE.
 - **Phone cannot connect:** Check that the PC is awake, JARVIS is open, and Tailscale is connected on both devices. Use the HTTPS address printed by `tailscale serve`.
 - **Phone cannot unlock:** Copy the key from the currently running Windows app and enter that exact key on the phone.
@@ -72,7 +74,7 @@ npm run package:android
 
 Electron 44's npm package does not run a postinstall download automatically. The explicit `install.js` command installs the development runtime and verifies its download. `NODE_USE_ENV_PROXY=1` uses the proxy already configured in the cloud environment. The builder cache option selects the same cache for Windows packaging. On another machine, replace the `/workspace` paths with writable cache directories.
 
-The Windows portable output is `release/windows/JARVIS-0.1.0-Windows-x64.exe`; the download copy is named `JARVIS-Windows.exe`. Windows packaging uses `win.signAndEditExecutable: false`, so the Linux build does not need Wine or a signing certificate.
+The Windows portable output is `release/windows/JARVIS-0.1.1-Windows-x64.exe`; the download copy is named `JARVIS-Windows.exe`. Windows packaging uses `win.signAndEditExecutable: false`, so the Linux build does not need Wine or a signing certificate. Android remains version 0.2.0 and uses the same `JARVIS-Android.apk` download.
 
 The Android build script provisions checksum-verified SDK/JDK tools as needed and produces `../scratch/JARVIS-Android.apk` by default. It requires Bash, curl, unzip, zip, tar, and checksum utilities. `JARVIS_ANDROID_TOOLS` and `JARVIS_ANDROID_OUTPUT` can override its tool directory and output path. The private development signing key and password remain outside the repository in the tool directory; do not include them in ZIPs or publish them. The build script verifies the APK signature and ZIP alignment before completion.
 

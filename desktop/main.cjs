@@ -4,6 +4,7 @@ const { pathToFileURL } = require('node:url');
 const { readFile, writeFile, mkdir } = require('node:fs/promises');
 const { randomBytes } = require('node:crypto');
 const { spawn } = require('node:child_process');
+const { createAiSetup } = require('./ai-setup.cjs');
 
 let window;
 let server;
@@ -11,10 +12,12 @@ let accessToken;
 let origin;
 let dataDirectory;
 let ownedOllama;
-let pullProcess;
+let aiSetup;
+let ollamaStartPromise;
 let quitting = false;
 let port = Number(process.env.JARVIS_DESKTOP_PORT || 3001);
 const allowedLinks = new Set(['ollama.com', 'tailscale.com', 'nodejs.org']);
+const ollamaUrl = (process.env.OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '');
 
 if (process.env.JARVIS_DESKTOP_DATA_DIR) app.setPath('userData', resolve(process.env.JARVIS_DESKTOP_DATA_DIR));
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -55,21 +58,39 @@ function checkSender(event) {
 }
 
 async function ollamaReachable() {
-  try { return (await fetch('http://127.0.0.1:11434/api/version', { signal: AbortSignal.timeout(1500) })).ok; }
+  try { return (await fetch(ollamaUrl + '/api/version', { signal: AbortSignal.timeout(3000) })).ok; }
   catch { return false; }
 }
 
 function ollamaCandidates() {
   const candidates = ['ollama'];
-  if (process.platform === 'win32' && process.env.LOCALAPPDATA) candidates.push(join(process.env.LOCALAPPDATA, 'Programs', 'Ollama', 'ollama.exe'));
+  if (process.platform === 'win32') {
+    if (process.env.LOCALAPPDATA) {
+      candidates.push(join(process.env.LOCALAPPDATA, 'Programs', 'Ollama', 'ollama.exe'));
+      candidates.push(join(process.env.LOCALAPPDATA, 'Ollama', 'ollama.exe'));
+    }
+    for (const directory of [process.env.ProgramFiles, process.env['ProgramFiles(x86)']]) {
+      if (directory) candidates.push(join(directory, 'Ollama', 'ollama.exe'));
+    }
+  }
   if (process.platform === 'darwin') candidates.push('/usr/local/bin/ollama');
-  return candidates;
+  return [...new Set(candidates)];
 }
 
-async function startOllama() {
+function startOllama() {
+  if (!ollamaStartPromise) ollamaStartPromise = launchOllama().finally(() => { ollamaStartPromise = undefined; });
+  return ollamaStartPromise;
+}
+
+async function launchOllama() {
   if (await ollamaReachable()) return true;
+  const endpoint = new URL(ollamaUrl);
+  // Only launch a local server. Respect one endpoint for setup, status and chat.
+  if (endpoint.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.pathname !== '/') return false;
   for (const executable of ollamaCandidates()) {
-    const child = spawn(executable, ['serve'], { windowsHide: true, stdio: 'ignore' });
+    const child = spawn(executable, ['serve'], { windowsHide: true, stdio: 'ignore',
+      env: { ...process.env, OLLAMA_HOST: endpoint.host }, cwd: dataDirectory,
+    });
     const started = await new Promise(resolveStarted => {
       child.once('spawn', () => resolveStarted(true));
       child.once('error', () => resolveStarted(false));
@@ -77,48 +98,13 @@ async function startOllama() {
     if (!started) continue;
     ownedOllama = child;
     child.once('exit', () => { if (ownedOllama === child) ownedOllama = undefined; });
-    for (let attempt = 0; attempt < 12; attempt++) {
+    for (let attempt = 0; attempt < 20; attempt++) {
       if (await ollamaReachable()) return true;
       if (child.exitCode !== null) break;
       await new Promise(resolveWait => setTimeout(resolveWait, 500));
     }
   }
   return false;
-}
-
-async function downloadModel() {
-  if (pullProcess) return { running: true, message: 'The model download is already running.' };
-  if (!(await startOllama())) return { running: false, error: 'Install Ollama for Windows first, then try Download free AI again.' };
-  const child = spawn(ollamaCandidates()[0], ['pull', 'qwen2.5:1.5b'], { windowsHide: true, stdio: 'ignore' });
-  const started = await new Promise(resolveStarted => {
-    child.once('spawn', () => resolveStarted(true));
-    child.once('error', () => resolveStarted(false));
-  });
-  if (!started) {
-    const fallback = ollamaCandidates()[1];
-    if (!fallback) return { running: false, error: 'Ollama command not found. Reopen JARVIS after installing Ollama.' };
-    return beginPull(fallback);
-  }
-  watchPull(child);
-  return { running: true, message: 'Downloading the free AI model (about 1 GB). Keep JARVIS open and refresh the AI connection when it finishes.' };
-}
-
-function beginPull(executable) {
-  return new Promise(resolvePull => {
-    const child = spawn(executable, ['pull', 'qwen2.5:1.5b'], { windowsHide: true, stdio: 'ignore' });
-    child.once('error', () => resolvePull({ running: false, error: 'Ollama could not start its model download.' }));
-    child.once('spawn', () => { watchPull(child); resolvePull({ running: true, message: 'Downloading the free AI model (about 1 GB). Keep JARVIS open.' }); });
-  });
-}
-
-function watchPull(child) {
-  pullProcess = child;
-  child.once('exit', code => {
-    pullProcess = undefined;
-    if (window && !window.isDestroyed()) window.webContents.send('jarvis:model-download', {
-      ok: code === 0, message: code === 0 ? 'Your free AI model is ready. Refresh the connection in Settings.' : 'The download did not finish. Check your connection and try again.',
-    });
-  });
 }
 
 async function phoneHelp() {
@@ -136,16 +122,22 @@ async function start() {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid desktop server port.');
   accessToken = await loadToken();
   const { createApp } = await import(pathToFileURL(join(app.getAppPath(), 'server', 'index.mjs')).href);
-  const backend = await createApp({ host: '127.0.0.1', accessToken, dataDir: join(dataDirectory, 'data'), distDir: join(app.getAppPath(), 'dist') });
+  const backend = await createApp({ host: '127.0.0.1', accessToken, ollamaUrl, dataDir: join(dataDirectory, 'data'), distDir: join(app.getAppPath(), 'dist') });
   server = backend.server;
   await new Promise((resolveListen, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolveListen); });
   origin = `http://127.0.0.1:${port}`;
 
+  aiSetup = createAiSetup({
+    baseUrl: ollamaUrl, getModel: () => backend.store.get().settings.model,
+    ensureService: startOllama,
+    onStatus: status => { if (window && !window.isDestroyed()) window.webContents.send('jarvis:ai-setup-status', status); },
+  });
   ipcMain.handle('jarvis:token', event => { checkSender(event); return accessToken; });
-  ipcMain.handle('jarvis:connection', event => { checkSender(event); return { port, version: app.getVersion(), downloading: Boolean(pullProcess), dataDirectory }; });
+  ipcMain.handle('jarvis:connection', event => { checkSender(event); return { port, version: app.getVersion(), downloading: aiSetup.running, dataDirectory }; });
+  ipcMain.handle('jarvis:ai-setup-status', event => { checkSender(event); return aiSetup.getStatus(); });
   ipcMain.handle('jarvis:copy-phone-key', event => { checkSender(event); clipboard.writeText(accessToken); return true; });
   ipcMain.handle('jarvis:phone-help', event => { checkSender(event); return phoneHelp(); });
-  ipcMain.handle('jarvis:download-model', event => { checkSender(event); return downloadModel(); });
+  ipcMain.handle('jarvis:download-model', event => { checkSender(event); return aiSetup.start(); });
   ipcMain.handle('jarvis:install-ollama', event => { checkSender(event); return shell.openExternal('https://ollama.com/download/windows'); });
 
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -182,7 +174,7 @@ app.on('before-quit', event => {
   if (quitting || !server) return;
   event.preventDefault();
   quitting = true;
-  if (pullProcess) pullProcess.kill();
+  aiSetup?.dispose();
   if (ownedOllama) ownedOllama.kill();
   server.close(() => app.quit());
   server.closeIdleConnections();

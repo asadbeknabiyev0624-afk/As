@@ -4,13 +4,13 @@ A personal assistant inspired by Tony Stark's companion: a place to talk things 
 
 ## Use the Windows EXE and Android APK
 
-- [Download Windows EXE](https://github.com/asadbeknabiyev0624-afk/As/raw/refs/heads/jarvis-downloads/JARVIS-Windows.exe) · [Download Android APK](https://github.com/asadbeknabiyev0624-afk/As/raw/refs/heads/jarvis-downloads/JARVIS-Android.apk)
+- [Download Windows EXE v0.1.1](https://github.com/asadbeknabiyev0624-afk/As/raw/refs/heads/jarvis-downloads/JARVIS-Windows-v0.1.1.exe) · [Download Android APK](https://github.com/asadbeknabiyev0624-afk/As/raw/refs/heads/jarvis-downloads/JARVIS-Android.apk)
 - [Browse downloads and checksums](https://github.com/asadbeknabiyev0624-afk/As/tree/jarvis-downloads)
 
-- **Windows 10/11, x64:** Open `JARVIS-Windows.exe`. No Node.js or npm installation is needed to run it.
+- **Windows 10/11, x64:** Open the updated `JARVIS-Windows.exe` (version **0.1.1**). No Node.js or npm installation is needed to run it.
 - **Android 8+:** Install `JARVIS-Android.apk`. The phone connects to the Windows app; it does not contain an AI model.
 
-On Windows, open **Settings → Desktop & Android → Install Ollama**, finish its installation, and reopen JARVIS. Choose **Download free AI** to download `qwen2.5:1.5b` (about 1 GB), then refresh the model connection. Notes and tasks work before AI setup finishes.
+If Ollama is already installed, open JARVIS and choose **Download AI** on Overview or Conversation. Otherwise, choose **Install Ollama** in the setup card, finish installation, and reopen JARVIS first. The default `qwen2.5:1.5b` model is about 1 GB. Keep JARVIS open and wait until it says **Connected and ready**. Download progress and any error stay visible in the setup card; the same controls are available in Settings. JARVIS checks that the model is installed before reporting readiness. Notes and tasks work before AI setup finishes.
 
 For the phone, install Tailscale on both devices, enable private HTTPS with Tailscale Serve, and enter that HTTPS address in the Android app. Use **Copy phone key** in the Windows app and enter the key on the phone's unlock screen. Keep your PC awake, online, and running JARVIS while using the phone.
 

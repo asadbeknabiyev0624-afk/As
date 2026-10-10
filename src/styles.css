@@ -80,3 +80,58 @@
 }
 
 .desktop-actions { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 22px 20px; }
+
+.ai-setup-card { margin-top: 24px; border-color: #345764; background: linear-gradient(115deg, #14313f80, #0e1724 75%); }
+.desktop-ai-setup { padding: 23px 22px; }
+.ai-setup-heading { display: flex; align-items: center; gap: 13px; }
+.ai-setup-icon { width: 43px; height: 43px; display: grid; place-items: center; flex-shrink: 0; color: #89dbe5; background: #1b3c4a; border: 1px solid #365a68; border-radius: 11px; }
+.ai-setup-heading .eyebrow { font-size: 8px; letter-spacing: 1.5px; color: #759cad; margin-bottom: 7px; }
+.ai-setup-heading h2 { font: 600 18px/1.4 var(--heading); letter-spacing: -.3px; color: #d2e7f1; }
+.ai-setup-description { font-size: 12px; color: #97aec3; line-height: 1.8; margin-top: 17px; max-width: 660px; }
+.ai-setup-model { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.ai-setup-model > span { font-size: 10px; color: #7792a9; }
+.ai-setup-model code { background: #0b1b28; border: 1px solid #294352; padding: 4px 8px; border-radius: 4px; color: #9dcbd7; font-size: 11px; overflow-wrap: anywhere; }
+.ai-setup-progress-status { display: flex; align-items: center; gap: 8px; margin-top: 19px; color: #a9c0d2; font-size: 11px; line-height: 1.7; }
+.ai-setup-progress-status > span:nth-child(2) { flex: 1; overflow-wrap: anywhere; }
+.ai-setup-progress-status > strong { color: #9be1ea; font-size: 11px; font-weight: 500; }
+.ai-setup-progress-status .status-dot { background: #b8a476; }
+.ai-setup-progress-status .status-dot-active { background: #7dcddb; }
+.ai-setup-progress { height: 5px; background: #223847; border-radius: 6px; overflow: hidden; margin-top: 11px; }
+.ai-setup-progress > span { display: block; height: 100%; background: linear-gradient(90deg, #499db7, #9ce2e9); border-radius: inherit; transition: width .3s; }
+.ai-setup-progress.indeterminate > span { animation: setup-progress 1.8s ease-in-out infinite; }
+@keyframes setup-progress { from { transform: translateX(-110%); } to { transform: translateX(400%); } }
+.ai-setup-error { display: flex; gap: 10px; padding: 13px 14px; border: 1px solid #71465270; background: #37202b70; border-radius: 6px; color: #d5a6b0; margin-top: 15px; }
+.ai-setup-error > svg { flex-shrink: 0; margin-top: 2px; }
+.ai-setup-error strong { font-weight: 600; font-size: 11px; }
+.ai-setup-error p { font-size: 11px; line-height: 1.8; margin-top: 4px; overflow-wrap: anywhere; }
+.ai-setup-error p:last-child { color: #b18c99; }
+.ai-setup-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 19px; }
+.ai-setup-actions .button { min-height: 38px; font-size: 11px; padding: 9px 13px; }
+.ai-setup-footnote { margin-top: 15px; font-size: 10px; color: #708aa1; line-height: 1.8; }
+.ai-setup-ready .ai-setup-icon { background: #1a382f; border-color: #315c50; color: #9bcebb; }
+.ai-setup-ready .ai-setup-progress-status .status-dot { background: #80c9ac; }
+.desktop-phone-heading { border-top: 1px solid #223344; }
+.settings-card .desktop-ai-setup { padding-top: 22px; }
+.settings-card .ai-setup-heading { align-items: flex-start; gap: 11px; }
+.settings-card .ai-setup-heading h2 { font-size: 16px; }
+.settings-card .ai-setup-heading .eyebrow { font-size: 7px; letter-spacing: 1.1px; }
+.settings-card .ai-setup-icon { width: 36px; height: 36px; border-radius: 9px; }
+.settings-card .ai-setup-icon svg { width: 20px; }
+.settings-card .ai-setup-description { font-size: 11px; }
+@media (max-width: 600px) {
+  .ai-setup-card { margin-top: 19px; }
+  .desktop-ai-setup, .settings-card .desktop-ai-setup { padding: 20px 17px; }
+  .ai-setup-heading, .settings-card .ai-setup-heading { gap: 11px; align-items: flex-start; }
+  .ai-setup-heading h2, .settings-card .ai-setup-heading h2 { font-size: 17px; line-height: 1.5; }
+  .ai-setup-heading .eyebrow, .settings-card .ai-setup-heading .eyebrow { font-size: 8px; letter-spacing: 1.1px; }
+  .ai-setup-icon, .settings-card .ai-setup-icon { width: 37px; height: 37px; border-radius: 10px; }
+  .ai-setup-description, .settings-card .ai-setup-description { font-size: 13px; line-height: 1.8; }
+  .ai-setup-model > span, .ai-setup-model code { font-size: 11px; }
+  .ai-setup-progress-status, .ai-setup-progress-status > strong { font-size: 12px; }
+  .ai-setup-progress { height: 6px; }
+  .ai-setup-actions .button { font-size: 12px; min-height: 42px; }
+  .ai-setup-error { padding: 12px; gap: 9px; }
+  .ai-setup-error strong, .ai-setup-error p { font-size: 12px; }
+  .ai-setup-footnote { font-size: 11px; }
+  .desktop-actions { padding-left: 17px; padding-right: 17px; }
+}
