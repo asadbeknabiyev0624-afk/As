@@ -1,3 +1,4 @@
-525ea2041bdfc7f8df79f7dd8c74bb480b224fa666ca7640971ff353cfea1ee1  JARVIS-Windows.exe
+bda09d73fe6a4ea9ca539e6df0d6f598df9de15caa447549b6594a3b58f2415b  JARVIS-Windows.exe
+bda09d73fe6a4ea9ca539e6df0d6f598df9de15caa447549b6594a3b58f2415b  JARVIS-Windows-v0.1.2.exe
 525ea2041bdfc7f8df79f7dd8c74bb480b224fa666ca7640971ff353cfea1ee1  JARVIS-Windows-v0.1.1.exe
 435e6744c68f7a507ae90775cbdac21f9a70a8f13c7559f37aa800a4b10a4fb6  JARVIS-Android.apk
