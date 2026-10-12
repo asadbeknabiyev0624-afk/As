@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { HudHero, HudOrb } from './Hud.jsx'
+import { useJarvisVoice, VoiceSettings } from './voice.jsx'
 import {
   AlertCircle, ArrowUp, ArrowUpRight, Bell, Brain, Check, CheckCircle2,
   ChevronRight, Clock3, Cpu, Download, LayoutDashboard, ListTodo,
@@ -57,13 +59,7 @@ async function request(path, options = {}) {
   return data
 }
 
-function Orb({ small = false, listening = false }) {
-  return <div className={`orb ${small ? 'orb-small' : ''} ${listening ? 'orb-listening' : ''}`} aria-hidden="true">
-    <div className="orb-halo" /><div className="orb-ring orb-ring-outer" /><div className="orb-ring orb-ring-middle" />
-    <div className="orb-ring orb-ring-inner" /><div className="orb-core"><div className="orb-core-light" /><span>J</span></div>
-    <span className="orb-tick tick-one" /><span className="orb-tick tick-two" /><span className="orb-tick tick-three" />
-  </div>
-}
+function Orb(props) { return <HudOrb {...props} /> }
 
 function SectionHeading({ eyebrow, title, children }) {
   return <div className="section-heading"><div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h2>{title}</h2></div>{children}</div>
@@ -160,6 +156,13 @@ function App() {
   const messageEnd = useRef(null)
   const notified = useRef(new Set())
   const mounted = useRef(true)
+  const isDesktop = Boolean(window.JarvisDesktop)
+  const onVoiceTranscript = useCallback(text => {
+    setInput(previous => previous ? previous + ' ' + text : text)
+    composerRef.current?.focus()
+  }, [])
+  const desktopVoice = useJarvisVoice({ onTranscript: onVoiceTranscript, onError: setVoiceError })
+  const voiceListening = isDesktop ? desktopVoice.listening : listening
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -210,6 +213,7 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (window.JarvisDesktop) { setVoiceSupported(true); return }
     if (window.JarvisAndroid?.startListening) {
       setVoiceSupported(true)
       const transcript = event => {
@@ -266,7 +270,8 @@ function App() {
     localStorage.setItem('jarvis-speak', String(speaking))
     if (!speaking && 'speechSynthesis' in window) window.speechSynthesis.cancel()
     if (!speaking) window.JarvisAndroid?.stopSpeaking?.()
-  }, [speaking])
+    if (!speaking && isDesktop) desktopVoice.stopSpeaking()
+  }, [speaking, isDesktop, desktopVoice.stopSpeaking])
 
   useEffect(() => {
     if (!networkAvailable) return
@@ -352,14 +357,17 @@ function App() {
     event?.preventDefault()
     const message = input.trim()
     if (!message || busy || !networkAvailable) return
+    if (isDesktop && (desktopVoice.listening || desktopVoice.transcribing)) { setVoiceError('Stop recording and review your words before sending.'); return }
     recognition.current?.stop()
     setBusy(true)
     setPendingMessage(message)
     setError('')
-    const result = await mutate('/chat', 'POST', { message })
+    const result = await mutate('/chat', 'POST', { message, ...(window.JarvisDesktop ? { responseLanguage: 'en' } : {}) })
     if (result) {
       setInput('')
-      if (speaking && window.JarvisAndroid?.speak && result.reply) {
+      if (speaking && isDesktop && result.reply) {
+        await desktopVoice.speak(result.reply)
+      } else if (speaking && window.JarvisAndroid?.speak && result.reply) {
         window.JarvisAndroid.speak(result.reply)
       } else if (speaking && 'speechSynthesis' in window && result.reply) {
         window.speechSynthesis.cancel()
@@ -380,6 +388,11 @@ function App() {
   }
 
   function toggleVoice() {
+    if (isDesktop) {
+      if (desktopVoice.voiceStatus.phase !== 'ready') { navigate('settings'); setVoiceError('Download voice & microphone in Settings to enable your British voice and offline listening.'); return }
+      desktopVoice.toggle()
+      return
+    }
     if (!voiceSupported) { setVoiceError('Dictation is not supported in this browser. Try Chrome or Edge, or type your message.'); return }
     if (!window.isSecureContext) { setVoiceError('Microphone access requires HTTPS or a connection on this device. Type your message here.'); return }
     if (listening) recognition.current?.stop()
@@ -421,22 +434,22 @@ function App() {
       <nav aria-label="Main navigation">{NAV.map(({ id, label, icon: Icon }) => <button key={id} className={`nav-item ${view === id ? 'active' : ''}`} onClick={() => navigate(id)} aria-current={view === id ? 'page' : undefined}><Icon size={19} /><span>{label}</span>{id === 'tasks' && activeTasks.length > 0 && <span className="nav-count">{activeTasks.length}</span>}{view === id && <span className="nav-active-dot" />}</button>)}</nav>
       <div className="sidebar-bottom">
         <div className="companion-mini"><span className="mini-orb"><Sparkles size={16} /></span><div><strong>Always in your corner.</strong><p>A little help goes a long way.</p></div></div>
-        <button className="install-button" onClick={install}><Download size={16} /><span>Keep JARVIS with you</span><ArrowUpRight size={14} /></button>
+        <button className="install-button" onClick={isDesktop ? () => navigate('settings') : install}><Download size={16} /><span>{isDesktop ? 'Voice & systems' : 'Keep JARVIS with you'}</span><ArrowUpRight size={14} /></button>
         <div className="profile-mini"><span className="avatar">{firstName[0].toUpperCase()}</span><div><strong>{state.profile.name || 'Your personal space'}</strong><p>Local companion</p></div><button className="icon-button" onClick={() => navigate('settings')} aria-label="Open profile settings"><Settings2 size={17} /></button></div>
       </div>
     </aside>
     {mobileMenu && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setMobileMenu(false)} />}
     <main className="main">
-      <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setMobileMenu(!mobileMenu)}><Menu size={21} /></button><span className="breadcrumb">Your space <ChevronRight size={12} /> <strong>{NAV.find(item => item.id === view)?.label}</strong></span></div><div className="topbar-right"><span className="date-label">{date}</span><button className={`connection-pill ${available ? 'connected' : networkAvailable ? 'needs-setup' : 'disconnected'}`} onClick={() => navigate('settings')} title="View connection settings"><span />{available ? 'JARVIS connected' : networkAvailable ? 'Model needs setup' : 'Server offline'}</button><button className="icon-button notification-button" onClick={() => navigate('tasks')} aria-label="Open tasks and reminders"><Bell size={18} />{activeTasks.some(task => task.dueAt && new Date(task.dueAt) <= new Date()) && <span className="notification-dot" />}</button></div></header>
+      <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setMobileMenu(!mobileMenu)}><Menu size={21} /></button><span className="breadcrumb">Your space <ChevronRight size={12} /> <strong>{NAV.find(item => item.id === view)?.label}</strong></span></div><div className="topbar-right"><span className="date-label">{date}</span><button className={`connection-pill ${available ? 'connected' : networkAvailable ? 'needs-setup' : 'disconnected'}`} onClick={() => navigate('settings')} title="View connection settings"><span />{available ? 'JARVIS connected' : !networkAvailable ? 'Server offline' : status?.online ? 'Model needs setup' : 'AI offline'}</button><button className={voiceListening ? "icon-button hud-microphone-active" : "icon-button"} onClick={toggleVoice} disabled={isDesktop && desktopVoice.transcribing} aria-label={voiceListening ? "Stop dictation" : "Talk to JARVIS"} title={voiceListening ? "Stop recording and review" : "Talk to JARVIS"}>{voiceListening ? <MicOff size={19} /> : <Mic size={19} />}</button><button className="icon-button notification-button" onClick={() => navigate('tasks')} aria-label="Open tasks and reminders"><Bell size={18} />{activeTasks.some(task => task.dueAt && new Date(task.dueAt) <= new Date()) && <span className="notification-dot" />}</button></div></header>
       <div className={`main-content page-${view}`}>
         {!networkAvailable && <div className="notice notice-warning"><WifiOff size={18} /><span>You’re viewing saved information. Reconnect to send messages or make changes.</span><button onClick={refresh} disabled={loading}>{loading ? 'Connecting…' : 'Reconnect'}</button></div>}
         {authRequired && <div className="unlock-banner"><LockKeyhole size={20} /><div><strong>The server needs an access token.</strong><Unlock onUnlock={refresh} /></div></div>}
         {error && networkAvailable && !authRequired && <div className="notice notice-error" role="alert"><AlertCircle size={18} /><span>{error}</span><button className="icon-button" onClick={() => setError('')} aria-label="Dismiss error"><X size={16} /></button></div>}
         {window.JarvisDesktop && ['overview', 'conversation'].includes(view) && ((!status?.online || !status?.modelAvailable) || aiSetup.busy) && <section className="card ai-setup-card"><DesktopAiSetup setup={aiSetup} status={status} refresh={refresh} loading={loading} selectedModel={state.settings?.model || MODEL} /></section>}
         {view === 'overview' && <>
-          <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="tiny-line" /> YOUR PERSONAL COMPANION</p><h1>Hello, {firstName}.<br /><span>What’s on your mind?</span></h1><p>A place to think out loud, find your next step,<br className="desktop-break" /> and make room for what matters.</p><button className="text-link" onClick={() => { navigate('conversation'); setTimeout(() => composerRef.current?.focus(), 50) }}>Let’s figure it out together <ArrowUpRight size={17} /></button></div><div className="hero-visual"><span className="orb-label orb-label-top">PERSONAL INTELLIGENCE</span><Orb listening={listening || busy} /><span className="orb-label orb-label-bottom"><span />{available ? 'Ready when you are' : 'Your space, ready to begin'}</span></div></section>
+          <HudHero name={firstName} available={available} serverConnected={networkAvailable} listening={voiceListening} busy={busy || (isDesktop && (desktopVoice.transcribing || desktopVoice.preparingSpeech))} speaking={isDesktop && desktopVoice.speaking} model={state.settings?.model} memoryCount={state.notes.length} taskCount={activeTasks.length} onStart={() => { navigate('conversation'); setTimeout(() => composerRef.current?.focus(), 50) }} />
           <div className="dashboard-grid"><div className="dashboard-primary">
-            <ChatCard state={state} input={input} setInput={setInput} sendMessage={sendMessage} busy={busy} pendingMessage={pendingMessage} networkAvailable={networkAvailable} listening={listening} toggleVoice={toggleVoice} voiceSupported={voiceSupported} voiceError={voiceError} speaking={speaking} setSpeaking={setSpeaking} composerRef={composerRef} messageEnd={messageEnd} compact onExpand={() => navigate('conversation')} />
+            <ChatCard state={state} input={input} setInput={setInput} sendMessage={sendMessage} busy={busy || (isDesktop && (desktopVoice.transcribing || desktopVoice.requestingPermission))} pendingMessage={pendingMessage} networkAvailable={networkAvailable} listening={voiceListening} toggleVoice={toggleVoice} voiceSupported={isDesktop ? desktopVoice.supported : voiceSupported} voiceError={voiceError} speaking={speaking} setSpeaking={setSpeaking} composerRef={composerRef} messageEnd={messageEnd} compact onExpand={() => navigate('conversation')} />
             <section className="quick-section"><p className="eyebrow">A GOOD PLACE TO START</p><div className="quick-actions"><button onClick={() => usePrompt('Help me plan a realistic day. Ask about my priorities before making a plan.')}><span className="quick-icon"><ListTodo size={18} /></span><span>Plan my day<small>Find a little focus</small></span><ArrowUpRight size={16} /></button><button onClick={() => usePrompt('I have a decision to think through. Help me look at it clearly, and ask me what the decision is.')}><span className="quick-icon"><Sparkles size={18} /></span><span>Think it through<small>Get a fresh perspective</small></span><ArrowUpRight size={16} /></button><button onClick={() => navigate('memory')}><span className="quick-icon"><Brain size={18} /></span><span>Remember this<small>Keep something useful</small></span><ArrowUpRight size={16} /></button></div></section>
           </div><div className="dashboard-secondary">
             <TasksCard tasks={state.tasks} mutate={mutate} disabled={!networkAvailable} compact onExpand={() => navigate('tasks')} />
@@ -445,10 +458,10 @@ function App() {
           </div></div>
           <footer className="page-footer"><span><span className="tiny-dot" /> MADE FOR YOUR EVERYDAY</span><span>A little more clarity, one conversation at a time.</span></footer>
         </>}
-        {view === 'conversation' && <><SectionHeading eyebrow="THINK OUT LOUD" title="A conversation, just for you."><button className="button button-subtle" disabled={!networkAvailable || busy || !state.messages.length} onClick={async () => { if (window.confirm('Clear your saved conversation? Your memories and tasks will stay.')) await mutate('/messages', 'DELETE', undefined, 'Conversation cleared.') }}><Trash2 size={15} /> Clear conversation</button></SectionHeading><ChatCard state={state} input={input} setInput={setInput} sendMessage={sendMessage} busy={busy} pendingMessage={pendingMessage} networkAvailable={networkAvailable} listening={listening} toggleVoice={toggleVoice} voiceSupported={voiceSupported} voiceError={voiceError} speaking={speaking} setSpeaking={setSpeaking} composerRef={composerRef} messageEnd={messageEnd} /></>}
+        {view === 'conversation' && <><SectionHeading eyebrow="THINK OUT LOUD" title="A conversation, just for you."><button className="button button-subtle" disabled={!networkAvailable || busy || !state.messages.length} onClick={async () => { if (window.confirm('Clear your saved conversation? Your memories and tasks will stay.')) await mutate('/messages', 'DELETE', undefined, 'Conversation cleared.') }}><Trash2 size={15} /> Clear conversation</button></SectionHeading><ChatCard state={state} input={input} setInput={setInput} sendMessage={sendMessage} busy={busy || (isDesktop && (desktopVoice.transcribing || desktopVoice.requestingPermission))} pendingMessage={pendingMessage} networkAvailable={networkAvailable} listening={voiceListening} toggleVoice={toggleVoice} voiceSupported={isDesktop ? desktopVoice.supported : voiceSupported} voiceError={voiceError} speaking={speaking} setSpeaking={setSpeaking} composerRef={composerRef} messageEnd={messageEnd} /></>}
         {view === 'memory' && <><SectionHeading eyebrow="A LITTLE CONTEXT GOES A LONG WAY" title="The things worth remembering." /><p className="page-description">Keep useful details, ideas, and personal context. JARVIS can use these memories in your conversations.</p><MemoryCard notes={state.notes} mutate={mutate} disabled={!networkAvailable} /></>}
         {view === 'tasks' && <><SectionHeading eyebrow="ONE STEP AT A TIME" title="Make space for what matters." /><p className="page-description">A simple place for the things you want to do. No pressure to do it all at once.</p><TasksCard tasks={state.tasks} mutate={mutate} disabled={!networkAvailable} /><ReminderSettings onToast={setToast} /></>}
-        {view === 'settings' && <><SectionHeading eyebrow="MAKE YOURSELF AT HOME" title="Your companion. Your way." /><Settings state={state} status={status} mutate={mutate} disabled={!networkAvailable} refresh={refresh} loading={loading} speaking={speaking} setSpeaking={setSpeaking} install={install} onToast={setToast} aiSetup={aiSetup} /></>}
+        {view === 'settings' && <><SectionHeading eyebrow="MAKE YOURSELF AT HOME" title="Your companion. Your way." /><Settings state={state} status={status} mutate={mutate} disabled={!networkAvailable} refresh={refresh} loading={loading} speaking={speaking} setSpeaking={setSpeaking} install={install} onToast={setToast} aiSetup={aiSetup} desktopVoice={desktopVoice} /></>}
       </div>
     </main>
     <nav className="mobile-nav" aria-label="Mobile navigation">{NAV.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => navigate(id)} className={view === id ? 'active' : ''} aria-current={view === id ? 'page' : undefined}><Icon size={20} /><span>{label === 'Conversation' ? 'Chat' : label}</span></button>)}</nav>
@@ -478,7 +491,7 @@ function ChatCard({ state, input, setInput, sendMessage, busy, pendingMessage, n
     </div>
     <form className="composer" onSubmit={sendMessage}><label className="sr-only" htmlFor={`message-${compact ? 'overview' : 'full'}`}>Message JARVIS</label><textarea id={`message-${compact ? 'overview' : 'full'}`} ref={composerRef} value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); sendMessage(event) } }} placeholder={networkAvailable ? 'What’s on your mind?' : 'Reconnect to start a conversation'} rows={2} disabled={!networkAvailable || busy} data-testid="message-input" /><div className="composer-bottom"><span><span className="composer-status" />{listening ? 'Listening… speak naturally' : 'A little clarity starts here'}</span><div><button className={`icon-button mic-button ${listening ? 'listening' : ''}`} type="button" onClick={toggleVoice} disabled={!networkAvailable || busy} aria-label={listening ? 'Stop dictation' : voiceSupported ? 'Dictate a message' : 'Check voice availability'} title={voiceSupported ? 'Dictate a message' : 'Voice is unavailable in this browser'}>{listening ? <MicOff size={18} /> : <Mic size={18} />}</button><button className="send-button" type="submit" disabled={!input.trim() || busy || !networkAvailable} aria-label="Send message" data-testid="send-message">{busy ? <LoaderCircle size={18} className="spin" /> : <ArrowUp size={19} />}</button></div></div></form>
     {voiceError && <p className="inline-error" role="alert"><AlertCircle size={14} />{voiceError}</p>}
-    <p className="chat-footnote">JARVIS can make mistakes. Use your judgment for important decisions.{voiceSupported && ' Browser dictation may use an online service.'}</p>
+    <p className="chat-footnote">JARVIS can make mistakes. Use your judgment for important decisions.{voiceSupported && (window.JarvisDesktop ? ' Windows voice runs locally after setup.' : ' Browser dictation may use an online service.')}</p>
   </section>
 }
 
@@ -549,7 +562,7 @@ function ReminderSettings({ onToast }) {
   return <div className="reminder-settings"><span className="setting-icon"><Bell size={21} /></span><div><h3>A nudge, when you need it.</h3><p>Reminders work while this app is open and connected to your companion server. Keep JARVIS open for scheduled notifications.</p>{permission === 'denied' && <p className="muted-warning">Notifications are blocked. You can allow them in your browser’s site settings.</p>}{permission === 'unsupported' && <p className="muted-warning">This browser does not support notifications. You can still keep tasks and due times here.</p>}</div>{permission !== 'unsupported' && <button className={`button ${permission === 'granted' ? 'button-subtle' : 'button-primary'}`} onClick={enable} disabled={permission === 'granted' || permission === 'denied'}>{permission === 'granted' ? <><Check size={15} /> Enabled</> : 'Enable reminders'}</button>}</div>
 }
 
-function Settings({ state, status, mutate, disabled, refresh, loading, speaking, setSpeaking, install, onToast, aiSetup }) {
+function Settings({ state, status, mutate, disabled, refresh, loading, speaking, setSpeaking, install, onToast, aiSetup, desktopVoice }) {
   const [profile, setProfile] = useState(state.profile)
   const [model, setModel] = useState(state.settings?.model || MODEL)
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || '')
@@ -570,7 +583,8 @@ function Settings({ state, status, mutate, disabled, refresh, loading, speaking,
   const models = [...new Set([state.settings?.model || MODEL, ...(status?.models || []), 'qwen2.5:1.5b', 'llama3.2:3b'])]
   return <div className="settings-grid"><div className="settings-primary">
     <section className="card settings-card"><div className="card-heading"><div className="card-title"><span className="card-icon"><Brain size={17} /></span><h2>A little about you</h2></div></div><p className="settings-description">Help JARVIS understand your world and the way you like to be helped.</p><form onSubmit={saveProfile} className="settings-form"><label>Your name<input value={profile.name || ''} onChange={event => setProfile({ ...profile, name: event.target.value })} placeholder="What should I call you?" disabled={disabled} maxLength={100} data-testid="profile-name" /></label><label>About you<textarea value={profile.aboutMe || ''} onChange={event => setProfile({ ...profile, aboutMe: event.target.value })} placeholder="Your goals, interests, work, or whatever you’d like me to know." rows={4} disabled={disabled} maxLength={3000} /></label><label>How you like to be helped<textarea value={profile.preferences || ''} onChange={event => setProfile({ ...profile, preferences: event.target.value })} placeholder="For example: Keep replies concise. Ask questions before giving advice. Be honest with me." rows={3} disabled={disabled} maxLength={3000} /></label><div className="form-actions"><button className="button button-primary" type="submit" disabled={disabled || saving === 'profile'}>{saving === 'profile' ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />} Save profile</button></div></form></section>
-    <section className="card settings-card"><div className="card-heading"><div className="card-title"><span className="card-icon"><Volume2 size={17} /></span><h2>Voice & presence</h2></div></div><div className="setting-row"><div><strong>Spoken replies</strong><p>Let your browser read JARVIS’s responses aloud.</p></div><button className={`toggle ${speaking ? 'toggle-on' : ''}`} role="switch" aria-checked={speaking} aria-label="Spoken replies" disabled={!(window.JarvisAndroid?.speak || 'speechSynthesis' in window)} onClick={() => setSpeaking(!speaking)}><span /></button></div><p className="settings-description">Tap the microphone in a conversation to dictate a message. Dictation depends on your browser and may use an online speech service. There is no background listening.</p><div className="setting-row install-setting"><div><strong>Keep your companion close</strong><p>Install JARVIS on your phone or computer from your browser.</p></div><button className="button button-subtle" onClick={install}><Download size={15} /> Install app</button></div></section>
+    {window.JarvisDesktop && <VoiceSettings voice={desktopVoice} />}
+    <section className="card settings-card"><div className="card-heading"><div className="card-title"><span className="card-icon"><Volume2 size={17} /></span><h2>Voice & presence</h2></div></div><div className="setting-row"><div><strong>Spoken replies</strong><p>Replies use your selected speech system. The Windows app uses the British English voice.</p></div><button className={`toggle ${speaking ? 'toggle-on' : ''}`} role="switch" aria-checked={speaking} aria-label="Spoken replies" disabled={!(window.JarvisAndroid?.speak || 'speechSynthesis' in window)} onClick={() => setSpeaking(!speaking)}><span /></button></div><p className="settings-description">Tap the microphone in a conversation to dictate a message. The Windows app uses offline listening after voice setup. There is no background listening.</p><div className="setting-row install-setting"><div><strong>Keep your companion close</strong><p>Install JARVIS on your phone or computer from your browser.</p></div><button className="button button-subtle" onClick={install}><Download size={15} /> Install app</button></div></section>
   </div><div className="settings-secondary">
     <section className="card settings-card"><div className="card-heading"><div className="card-title"><span className="card-icon"><Cpu size={17} /></span><h2>Your local AI</h2></div><button className="icon-button" aria-label="Refresh model connection" onClick={refresh} disabled={loading}><RefreshCw size={16} className={loading ? 'spin' : ''} /></button></div>{!window.JarvisDesktop && <><div className={`model-status ${status?.online && status?.modelAvailable ? 'model-ready' : ''}`}><span className="status-dot" /><strong>{status?.online && status?.modelAvailable ? 'Connected and ready' : status?.online ? 'Model not installed' : 'Ollama is not connected'}</strong></div><p className="settings-description">Free conversation runs on your own computer using Ollama. The server must be able to reach it.</p>{(!status?.online || !status?.modelAvailable) && <div className="model-help"><p>Install and start <a href="https://ollama.com/download" target="_blank" rel="noreferrer">Ollama <ArrowUpRight size={12} /></a>, then download your model:</p><code>ollama pull {state.settings?.model || MODEL}</code><p>Keep Ollama running and refresh the connection. On another device, your companion computer still needs to be online.</p></div>}</>}<form onSubmit={saveModel} className="settings-form"><label>Conversation model<input list="models" value={model} onChange={event => setModel(event.target.value)} disabled={disabled || aiSetup?.busy} required placeholder={MODEL} maxLength={120} /><datalist id="models">{models.map(item => <option key={item} value={item} />)}</datalist></label><small className="field-hint">qwen2.5:1.5b is a lightweight starting point. Larger models need more memory.</small><button className="button button-subtle" type="submit" disabled={disabled || aiSetup?.busy || saving === 'model' || !model.trim()}>{saving === 'model' ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />} Save model</button></form></section>
     <section className="card settings-card"><div className="card-heading"><div className="card-title"><span className="card-icon"><LockKeyhole size={17} /></span><h2>Server access</h2></div></div><p className="settings-description">If your server requires an access token, save it here. It stays in this browser and is sent only to your companion server.</p><form className="settings-form" onSubmit={async event => { event.preventDefault(); if (token.trim()) localStorage.setItem(TOKEN_KEY, token.trim()); else localStorage.removeItem(TOKEN_KEY); await refresh(); onToast('Browser access token updated.') }}><label>Access token<input type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Not required for local use" autoComplete="off" /></label><button className="button button-subtle" type="submit"><Check size={15} /> Save & reconnect</button></form></section>
@@ -586,7 +600,7 @@ function DesktopAiSetup({ setup, status, refresh, loading, selectedModel }) {
   const error = ready ? '' : setup.error || actionError
   const title = ready ? 'Your AI is ready.' : setup.busy ? 'Getting your AI ready.' : 'One more step to start chatting.'
   const description = ready ? 'Your conversation model is installed and connected. You’re ready to talk with JARVIS.' : setup.busy ? 'Keep JARVIS open while your conversation model downloads. This is only needed once for each model.' : status?.online ? 'Ollama is connected. Download the free conversation model below to start chatting.' : 'Install and open Ollama, then download your free conversation model here. No terminal or commands needed.'
-  const statusText = setup.busy ? setup.status || (setup.phase === 'connecting' ? 'Connecting to Ollama…' : 'Downloading your AI model…') : ready ? 'Connected and ready' : setup.phase === 'ready' ? 'Download complete. Checking the connection…' : setup.status || (status?.online ? 'Conversation model not downloaded yet' : 'Waiting for Ollama')
+  const statusText = setup.busy ? setup.status || (setup.phase === 'connecting' ? 'Connecting to Ollama…' : 'Downloading your AI model…') : ready ? 'Connected and ready' : setup.phase === 'ready' ? status?.online ? 'Checking the selected model…' : 'Ollama is offline. Click Connect AI to restart it.' : setup.status || (status?.online ? 'Conversation model not downloaded yet' : 'Waiting for Ollama')
   async function installOllama() {
     setActionError('')
     try {
@@ -602,7 +616,7 @@ function DesktopAiSetup({ setup, status, refresh, loading, selectedModel }) {
     {setup.busy && <div className={`ai-setup-progress ${setup.progress === null ? 'indeterminate' : ''}`} role="progressbar" aria-label="AI model download" aria-valuemin={0} aria-valuemax={100} aria-valuenow={setup.progress ?? undefined}><span style={{ width: setup.progress === null ? '35%' : `${setup.progress}%` }} /></div>}
     {error && <div className="ai-setup-error" role="alert"><AlertCircle size={17} /><div><strong>Setup couldn’t finish.</strong><p>{error}</p><p>You can retry here. Your saved conversations and memories are safe.</p></div></div>}
     <div className="ai-setup-actions">
-      {!ready && <button className="button button-primary" onClick={() => { setActionError(''); setup.download() }} disabled={setup.busy} data-testid="download-ai">{setup.busy ? <LoaderCircle size={16} className="spin" /> : <Download size={16} />}{setup.phase === 'connecting' ? 'Connecting…' : setup.phase === 'downloading' ? 'Downloading AI…' : error ? 'Retry setup' : 'Download AI'}</button>}
+      {!ready && <button className="button button-primary" onClick={() => { setActionError(''); setup.download() }} disabled={setup.busy} data-testid="download-ai">{setup.busy ? <LoaderCircle size={16} className="spin" /> : <Download size={16} />}{setup.phase === 'connecting' ? 'Connecting…' : setup.phase === 'downloading' ? 'Downloading AI…' : error ? 'Retry setup' : !status?.online ? 'Connect AI' : 'Download AI'}</button>}
       {!status?.online && !setup.busy && <button className="button button-subtle" onClick={installOllama}>Install Ollama</button>}
       {!setup.busy && <button className="button button-subtle" onClick={refresh} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} />{loading ? 'Checking…' : 'Check connection'}</button>}
     </div>

@@ -290,6 +290,28 @@ test('missing models and unavailable Ollama save the user message without invent
   assert.deepEqual((await app.request('/api/state')).data, unavailable.data.state);
 });
 
+test('British English speech preference reaches the model and rejects unsupported languages', async t => {
+  const app = await fixture(t);
+  const response = await app.request('/api/chat', { method: 'POST', body: { message: 'Salom, yordam bering.', responseLanguage: 'en' } });
+  assert.equal(response.status, 200);
+  const prompt = app.calls.find(call => call.path === '/api/chat').body.messages[0].content;
+  assert.match(prompt, /natural British English/);
+  const state = (await app.request('/api/state')).data;
+  const invalid = await app.request('/api/chat', { method: 'POST', body: { message: 'Another question.', responseLanguage: 'untrusted' } });
+  assert.equal(invalid.status, 400);
+  assert.deepEqual((await app.request('/api/state')).data, state);
+});
+
+test('an Ollama resource failure is shown clearly without inventing an assistant reply', async t => {
+  const app = await fixture(t, { provider(call, response) {
+    return sendJson(response, 500, { error: 'model requires more system memory than is available' });
+  } });
+  const response = await app.request('/api/chat', { method: 'POST', body: { message: 'Please help.' } });
+  assert.equal(response.status, 503);
+  assert.match(response.data.error, /more system memory/);
+  assert.deepEqual(response.data.state.messages.map(message => message.role), ['user']);
+});
+
 test('explicit local commands save and list useful data without contacting a model', async t => {
   const app = await fixture(t);
   await app.stopProvider();

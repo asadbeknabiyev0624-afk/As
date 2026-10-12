@@ -4,10 +4,10 @@ A personal assistant inspired by Tony Stark's companion: a place to talk things 
 
 ## Use the Windows EXE and Android APK
 
-- [Download Windows EXE v0.1.1](https://github.com/asadbeknabiyev0624-afk/As/raw/refs/heads/jarvis-downloads/JARVIS-Windows-v0.1.1.exe) · [Download Android APK](https://github.com/asadbeknabiyev0624-afk/As/raw/refs/heads/jarvis-downloads/JARVIS-Android.apk)
+- [Download Windows EXE v0.1.2](https://github.com/asadbeknabiyev0624-afk/As/raw/refs/heads/jarvis-downloads/JARVIS-Windows-v0.1.2.exe) · [Download Android APK](https://github.com/asadbeknabiyev0624-afk/As/raw/refs/heads/jarvis-downloads/JARVIS-Android.apk)
 - [Browse downloads and checksums](https://github.com/asadbeknabiyev0624-afk/As/tree/jarvis-downloads)
 
-- **Windows 10/11, x64:** Open the updated `JARVIS-Windows.exe` (version **0.1.1**). No Node.js or npm installation is needed to run it.
+- **Windows 10/11, x64:** Open the updated `JARVIS-Windows.exe` (version **0.1.2**). No Node.js or npm installation is needed to run it.
 - **Android 8+:** Install `JARVIS-Android.apk`. The phone connects to the Windows app; it does not contain an AI model.
 
 If Ollama is already installed, open JARVIS and choose **Download AI** on Overview or Conversation. Otherwise, choose **Install Ollama** in the setup card, finish installation, and reopen JARVIS first. The default `qwen2.5:1.5b` model is about 1 GB. Keep JARVIS open and wait until it says **Connected and ready**. Download progress and any error stay visible in the setup card; the same controls are available in Settings. JARVIS checks that the model is installed before reporting readiness. Notes and tasks work before AI setup finishes.
@@ -17,6 +17,16 @@ For the phone, install Tailscale on both devices, enable private HTTPS with Tail
 Follow the [EXE + APK setup guide](docs/NATIVE.md) for the exact installation and connection steps, troubleshooting, and native build instructions. The Windows build is unsigned; the APK uses a personal development signing key. Hardware launch and voice behavior require testing on your devices.
 
 The app includes chat, saved memories and tasks, a personal profile, model selection, push-to-talk, and spoken replies. The source also supports a browser app with installation from a supported browser.
+
+## British voice and microphone on Windows
+
+Version 0.1.2 adds the JARVIS HUD, a visible microphone button, and automatic attempts to reconnect to a stopped local Ollama server. If AI is offline, use **Connect AI**; the app preserves download progress and displays model errors.
+
+Open **Settings → British voice & microphone** and choose **Download voice & microphone** once (approximately 235 MB). This installs verified Whisper and Piper assets in your private app-data folder. After **British voice is ready**, use **Test British voice**, enable **Spoken replies**, and tap the microphone to record. Tap again to stop, review the transcript, then send. The default spoken language is natural British English; you can select English, Uzbek or Russian for microphone input.
+
+Voice assets require internet for their first download. Afterwards, transcription and British voice generation run locally. Recording stops after 30 seconds. If Windows blocks recording, allow microphone access for desktop apps in Windows privacy settings. If the helper reports a missing Microsoft Visual C++ runtime, install the official x64 redistributable through the repair button or the native setup guide.
+
+The new voice pipeline and installer are tested with fixtures in the cloud. Actual model downloads and speech on physical Windows still need device testing.
 
 ## Develop or run the web app from source
 

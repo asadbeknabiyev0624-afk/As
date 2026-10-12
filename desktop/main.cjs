@@ -5,6 +5,7 @@ const { readFile, writeFile, mkdir } = require('node:fs/promises');
 const { randomBytes } = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { createAiSetup } = require('./ai-setup.cjs');
+const { createVoiceManager } = require('./voice.cjs');
 
 let window;
 let server;
@@ -13,10 +14,12 @@ let origin;
 let dataDirectory;
 let ownedOllama;
 let aiSetup;
+let voiceManager;
 let ollamaStartPromise;
+let ollamaHeartbeat;
 let quitting = false;
 let port = Number(process.env.JARVIS_DESKTOP_PORT || 3001);
-const allowedLinks = new Set(['ollama.com', 'tailscale.com', 'nodejs.org']);
+const allowedLinks = new Set(['ollama.com', 'tailscale.com', 'nodejs.org', 'aka.ms']);
 const ollamaUrl = (process.env.OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '');
 
 if (process.env.JARVIS_DESKTOP_DATA_DIR) app.setPath('userData', resolve(process.env.JARVIS_DESKTOP_DATA_DIR));
@@ -58,7 +61,10 @@ function checkSender(event) {
 }
 
 async function ollamaReachable() {
-  try { return (await fetch(ollamaUrl + '/api/version', { signal: AbortSignal.timeout(3000) })).ok; }
+  try {
+    const response = await fetch(ollamaUrl + '/api/version', { signal: AbortSignal.timeout(3000) });
+    return response.ok && typeof (await response.json()).version === 'string';
+  }
   catch { return false; }
 }
 
@@ -132,9 +138,18 @@ async function start() {
     ensureService: startOllama,
     onStatus: status => { if (window && !window.isDestroyed()) window.webContents.send('jarvis:ai-setup-status', status); },
   });
+  voiceManager = createVoiceManager({
+    dataDir: dataDirectory,
+    onStatus: status => { if (window && !window.isDestroyed()) window.webContents.send('jarvis:voice-status', status); },
+  });
   ipcMain.handle('jarvis:token', event => { checkSender(event); return accessToken; });
   ipcMain.handle('jarvis:connection', event => { checkSender(event); return { port, version: app.getVersion(), downloading: aiSetup.running, dataDirectory }; });
   ipcMain.handle('jarvis:ai-setup-status', event => { checkSender(event); return aiSetup.getStatus(); });
+  ipcMain.handle('jarvis:voice-status', event => { checkSender(event); return voiceManager.getStatus(); });
+  ipcMain.handle('jarvis:voice-setup', event => { checkSender(event); return voiceManager.setup(); });
+  ipcMain.handle('jarvis:voice-transcribe', (event, wav, language) => { checkSender(event); return voiceManager.transcribe(wav, language); });
+  ipcMain.handle('jarvis:voice-speak', (event, text) => { checkSender(event); return voiceManager.synthesize(text); });
+  ipcMain.handle('jarvis:voice-runtime', event => { checkSender(event); return shell.openExternal('https://aka.ms/vs/17/release/vc_redist.x64.exe'); });
   ipcMain.handle('jarvis:copy-phone-key', event => { checkSender(event); clipboard.writeText(accessToken); return true; });
   ipcMain.handle('jarvis:phone-help', event => { checkSender(event); return phoneHelp(); });
   ipcMain.handle('jarvis:download-model', event => { checkSender(event); return aiSetup.start(); });
@@ -168,13 +183,19 @@ async function start() {
   window.on('closed', () => { window = undefined; app.quit(); });
   await window.loadURL(origin);
   startOllama().catch(() => {});
+  ollamaHeartbeat = setInterval(() => {
+    if (!quitting && !aiSetup.running) startOllama().catch(() => {});
+  }, 20000);
+  ollamaHeartbeat.unref();
 }
 
 app.on('before-quit', event => {
   if (quitting || !server) return;
   event.preventDefault();
   quitting = true;
+  clearInterval(ollamaHeartbeat);
   aiSetup?.dispose();
+  voiceManager?.dispose();
   if (ownedOllama) ownedOllama.kill();
   server.close(() => app.quit());
   server.closeIdleConnections();

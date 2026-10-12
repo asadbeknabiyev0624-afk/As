@@ -112,7 +112,8 @@ export async function createApp(options = {}) {
   }
 
   async function chat(request, response) {
-    const { message: raw } = await bodyJson(request);
+    const { message: raw, responseLanguage = 'auto' } = await bodyJson(request);
+    if (!['auto', 'en', 'uz', 'ru'].includes(responseLanguage)) throw new RequestError(400, 'Choose a supported response language.');
     const message = text(raw, 12000, 'Message');
     if (chatActive) throw new RequestError(429, 'I’m finishing another response. Please try again in a moment.');
     chatActive = true;
@@ -143,11 +144,16 @@ export async function createApp(options = {}) {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           signal: AbortSignal.timeout(chatTimeout),
           body: JSON.stringify({ model: state.settings.model, stream: false,
-            messages: [{ role: 'system', content: systemPrompt(state) }, ...state.messages.slice(-24).map(({ role, content }) => ({ role, content }))],
+            messages: [{ role: 'system', content: systemPrompt(state, responseLanguage) }, ...state.messages.slice(-24).map(({ role, content }) => ({ role, content }))],
             options: { num_ctx: 8192, temperature: 0.7, num_predict: 1024 },
           }),
         });
-        if (!result.ok) throw new Error(result.status === 404 ? `Model ${state.settings.model} is missing. Run “ollama pull ${state.settings.model}” or change it in Settings.` : `Ollama returned HTTP ${result.status}. Check the local model server.`);
+        if (!result.ok) {
+          let detail;
+          try { detail = (await result.json()).error; } catch {}
+          const diagnostic = typeof detail === 'string' ? detail.slice(0, 400) : 'Check the local model server.';
+          throw new Error(result.status === 404 ? `Model ${state.settings.model} is missing. Use Download AI in JARVIS or choose an installed model in Settings.` : `Ollama returned HTTP ${result.status}: ${diagnostic}`);
+        }
         const data = await result.json();
         reply = typeof data.message?.content === 'string' ? data.message.content.trim() : '';
         if (!reply) throw new Error('The model returned an empty response. Try again or choose another model.');

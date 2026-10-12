@@ -2,7 +2,7 @@
 
 Windows uchun **JARVIS-Windows.exe** faylini oching. Android uchun **JARVIS-Android.apk** faylini o‘rnating. Telefonda AI ishlashi uchun kompyuteringizda JARVIS ochiq va internetga ulangan bo‘lishi kerak.
 
-Ollama o‘rnatilgan bo‘lsa, JARVIS ichidagi **Download AI** tugmasini bosing va **Connected and ready** chiqishini kuting. Windows versiyasi: **0.1.1**; Android APK o‘zgarmagan.
+Ollama o‘rnatilgan bo‘lsa, JARVIS ichidagi **Download AI** tugmasini bosing va **Connected and ready** chiqishini kuting. Windows versiyasi: **0.1.2**; Android APK o‘zgarmagan.
 
 | Device | Download | Requirement |
 | --- | --- | --- |
@@ -39,7 +39,13 @@ The APK is signed with a development key for this personal build. It is not a Pl
 
 ## Voice, memory, and access
 
-Tap the microphone to dictate, review the text, then send it. Allow microphone permission when Android asks. Turn on the speaker button for spoken replies. Android uses its installed speech recognition and text-to-speech services; available languages, offline support, and voices depend on those services. Windows voice support depends on Chromium and installed voices.
+Tap the microphone to dictate, review the text, then send it. Allow microphone permission when Android asks. Turn on the speaker button for spoken replies. Android uses its installed speech recognition and text-to-speech services; available languages, offline support, and voices depend on those services. Windows v0.1.2 uses offline Whisper transcription and the Piper Alan British English voice after voice setup.
+
+On Windows, open **Settings → British voice & microphone → Download voice & microphone** once, approximately 235 MB. Wait for **British voice is ready**, test the voice, and turn **Spoken replies** on. Use the microphone in the header or conversation to record; tap again to stop and review your words before sending. English is the default microphone language, with Uzbek and Russian also available. Windows spoken replies use British English. The app does not use Chromium's network speech-recognition service for Windows dictation.
+
+The downloaded tools and models stay under the app's private voice directory. Whisper and Piper archives are checked against pinned SHA-256 digests. Model downloads use verified HTTPS, an exact Hugging Face revision, and published LFS SHA-256 or Git-blob checksums. Failed or changed downloads are rejected. Model cards and component notices are retained with the voice assets.
+
+If a helper cannot start because of missing DLLs, install Microsoft's [Visual C++ x64 redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe), then retry voice setup. If microphone access is denied, enable **Allow desktop apps to access your microphone** in Windows privacy settings. The Android APK continues to use its phone's installed speech services.
 
 This version uses push-to-talk. It does not listen continuously or deliver scheduled alarms after the app closes. Task notifications require the app to remain open and connected.
 
@@ -74,7 +80,7 @@ npm run package:android
 
 Electron 44's npm package does not run a postinstall download automatically. The explicit `install.js` command installs the development runtime and verifies its download. `NODE_USE_ENV_PROXY=1` uses the proxy already configured in the cloud environment. The builder cache option selects the same cache for Windows packaging. On another machine, replace the `/workspace` paths with writable cache directories.
 
-The Windows portable output is `release/windows/JARVIS-0.1.1-Windows-x64.exe`; the download copy is named `JARVIS-Windows.exe`. Windows packaging uses `win.signAndEditExecutable: false`, so the Linux build does not need Wine or a signing certificate. Android remains version 0.2.0 and uses the same `JARVIS-Android.apk` download.
+The Windows portable output is `release/windows/JARVIS-0.1.2-Windows-x64.exe`; the download copy is named `JARVIS-Windows.exe`. Windows packaging uses `win.signAndEditExecutable: false`, so the Linux build does not need Wine or a signing certificate. Android remains version 0.2.0 and uses the same `JARVIS-Android.apk` download.
 
 The Android build script provisions checksum-verified SDK/JDK tools as needed and produces `../scratch/JARVIS-Android.apk` by default. It requires Bash, curl, unzip, zip, tar, and checksum utilities. `JARVIS_ANDROID_TOOLS` and `JARVIS_ANDROID_OUTPUT` can override its tool directory and output path. The private development signing key and password remain outside the repository in the tool directory; do not include them in ZIPs or publish them. The build script verifies the APK signature and ZIP alignment before completion.
 

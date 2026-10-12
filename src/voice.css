@@ -1,0 +1,19 @@
+.jarvis-native-voice { overflow: hidden; }
+.jarvis-voice-status { margin: 16px 0; padding: 14px 16px; border: 1px solid rgba(103, 183, 204, .24); background: rgba(41, 137, 157, .06); border-radius: 10px; }
+.jarvis-voice-status strong { color: inherit; font-size: .91rem; }
+.jarvis-voice-status p { margin: 6px 0 0; font-size: .84rem; line-height: 1.6; opacity: .82; }
+.jarvis-voice-status-error { border-color: rgba(221, 147, 115, .45); }
+.jarvis-voice-error { color: #b6503e; opacity: 1 !important; }
+.jarvis-voice-download-progress { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: .8rem; }
+.jarvis-voice-download-progress progress { flex: 1; min-width: 60px; height: 8px; accent-color: #3a9aae; }
+.jarvis-voice-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.jarvis-voice-language { gap: 18px; }
+.jarvis-voice-language select { max-width: 190px; padding: 9px 12px; border: 1px solid rgba(106, 151, 164, .35); border-radius: 7px; background: transparent; color: inherit; font: inherit; font-size: .86rem; }
+.jarvis-voice-language select option { color: #102c38; background: #f5fbfc; }
+.jarvis-voice-microphone-test { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.jarvis-voice-microphone-test > span { font-size: .8rem; line-height: 1.5; opacity: .8; }
+.jarvis-voice-footnote { margin-top: 15px; font-size: .78rem !important; }
+.jarvis-voice-spin { animation: jarvis-voice-spin 1s linear infinite; }
+@keyframes jarvis-voice-spin { to { transform: rotate(360deg); } }
+@media (max-width: 540px) { .jarvis-voice-language { align-items: flex-start; flex-direction: column; } .jarvis-voice-language select { width: 100%; max-width: none; } }
+@media (prefers-reduced-motion: reduce) { .jarvis-voice-spin { animation: none; } }
